@@ -8,6 +8,7 @@
 #include "../config/config.h"
 #include "../timezones.h"
 #include "../utils/utils.h"
+#include "../clocks/cycle_config.h"
 #include <Preferences.h>
 
 
@@ -41,6 +42,7 @@ void loadSettings() {
     Serial.println("WARNING: Failed to open preferences, using defaults");
     // Initialize with defaults
     settings.clockStyle = 0;
+    strcpy(settings.cycleConfig, CYCLE_DEFAULT);
     settings.gmtOffset = 60;  // GMT+1 (Central European)
     settings.daylightSaving = true;
     strcpy(settings.timezoneString, "CET-1CEST,M3.5.0/02:00,M10.5.0/03:00"); // Default: Central European
@@ -157,6 +159,15 @@ void loadSettings() {
   }
 
   settings.clockStyle = preferences.getInt("clockStyle", 0); // Default: Mario
+
+  // An unparsable rotation - hand-edited, or written by a firmware whose style
+  // list has since changed beyond repair - falls back to the stock order.
+  strcpy(settings.cycleConfig, CYCLE_DEFAULT);
+  String cycle = preferences.getString("cycleConfig", CYCLE_DEFAULT);
+  CycleEntry checkedCycle[CYCLE_COUNT];
+  if (cycle.length() < sizeof(settings.cycleConfig) &&
+      parseCycleConfig(cycle.c_str(), checkedCycle))
+    strcpy(settings.cycleConfig, cycle.c_str());
 
   // gmtOffset migration: convert old hours to new minutes format
   int loadedOffset = preferences.getInt("gmtOffset", 60);
@@ -536,6 +547,7 @@ void saveSettings() {
   sanitizeBrightnessSettings();
   preferences.begin("pcmonitor", false); // Read-write
   preferences.putInt("clockStyle", settings.clockStyle);
+  preferences.putString("cycleConfig", settings.cycleConfig);
   preferences.putInt("gmtOffset", settings.gmtOffset); // Keep for backward compatibility
   preferences.putBool("dst", settings.daylightSaving);  // Keep for backward compatibility
   preferences.putString("tz", settings.timezoneString); // New timezone string

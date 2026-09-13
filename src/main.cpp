@@ -181,6 +181,20 @@ uint8_t nextClockStyle(uint8_t current) {
   return CLOCK_STYLES[0];
 }
 
+#if TOUCH_BUTTON_ENABLED
+// A style picked with the touch button is a real choice, so persist it the way
+// the web form does - it used to live in RAM only and was lost on the next
+// reboot. Preferences skips writing a value that has not changed, so this costs
+// one key per tap.
+void advanceClockStyleFromTouch() {
+  settings.clockStyle = nextClockStyle(settings.clockStyle);
+  resetClockAnimationState();
+  saveSettings();
+  Serial.print("Touch button: Clock style -> ");
+  Serial.println(settings.clockStyle);
+}
+#endif
+
 // Single source of truth for mode precedence. The visualizer outranks both
 // stats and clock: it is only ever on because something explicitly asked for
 // it, and it stops asking on its own once the stream dies.
@@ -255,60 +269,68 @@ int getOptimalRefreshRate() {
   }
 }
 
-// --- Clock screen cycle state ---
-int lastMinuteBlock = -1;
-int currentScreen = 0;
-bool firstTimeSynced = false;
+// --- Clock screen rotation ---
+// The rotation is a list of style:seconds pairs the user orders in the web UI,
+// so durations are elapsed time rather than wall-clock 5-minute blocks.
+#include "clocks/cycle_config.h"
 
 // Animated clocks fire their minute-change animation at :56 and it runs on into
-// the next minute, so switching screens the instant the 5-minute block rolls
-// over clipped the animation every single time. Hold the switch back a few
-// seconds and let it land first.
-const int CYCLE_MIN_SEC = 10;  // grace for the outgoing animation to finish
-const int CYCLE_MAX_SEC = 30;  // cap so a stuck override can never wedge the cycle
+// the next minute, so switching the instant a duration expires clipped the
+// animation. Hold the switch back while one is in flight, with a cap so a stuck
+// animation can never wedge the rotation.
+const uint32_t CYCLE_ANIM_GRACE_MS = 6000;
 
 void cycleClockScreens() {
-    struct tm timeinfo;
+    static char previous[sizeof(settings.cycleConfig)] = "";
+    static CycleEntry entries[CYCLE_COUNT];
+    static unsigned index = 0;
+    static uint32_t started = 0, lastRendered = 0;
+    static int lastStyle = -1;
 
-    // Advance the cycle only when we have valid time. When time is not yet
-    // available the per-screen draw functions below render their own
-    // "Syncing time..." message, so the display is never left blank.
-    if (getTimeWithTimeout(&timeinfo)) {
-        // Determine which 5-minute block we are in
-        int minuteBlock = timeinfo.tm_min / 5;
+    uint32_t now = millis();
 
-        // First valid time -> initialize block WITHOUT advancing screen
-        if (!firstTimeSynced) {
-            lastMinuteBlock = minuteBlock;
-            firstTimeSynced = true;
-        }
+    // Reparse when the config changes, and when the rotation was not the active
+    // renderer for a while - leaving and re-entering style 9 restarts it.
+    if (strcmp(previous, settings.cycleConfig) || now - lastRendered > 2000) {
+        if (!parseCycleConfig(settings.cycleConfig, entries))
+            parseCycleConfig(CYCLE_DEFAULT, entries);
+        strcpy(previous, settings.cycleConfig);
+        index = 0;
+        started = now;
+    }
+    lastRendered = now;
 
-        // After that, normal cycling. The block change is not consumed until
-        // the switch actually happens, so the condition simply stays true until
-        // the grace window opens. time_overridden covers every animated style
-        // except Pong, whose transition is long finished by CYCLE_MIN_SEC.
-        if (minuteBlock != lastMinuteBlock &&
-            timeinfo.tm_sec >= CYCLE_MIN_SEC &&
-            (!time_overridden || timeinfo.tm_sec >= CYCLE_MAX_SEC)) {
-            lastMinuteBlock = minuteBlock;
-            currentScreen = (currentScreen + 1) % 11; // Cycle through all 11 clock styles
-            resetClockAnimationState(); // Reset animation state when changing screens
-        }
+    uint32_t elapsed = now - started;
+    if (entries[index].seconds && elapsed >= entries[index].seconds * 1000UL &&
+        (!time_overridden || elapsed >= entries[index].seconds * 1000UL + CYCLE_ANIM_GRACE_MS)) {
+        index = (index + 1) % CYCLE_COUNT;
+        started = now;
     }
 
-    // Draw the current screen (each draw function handles the no-time case)
-    switch (currentScreen) {
-        case 0: displayStandardClock(); break;
-        case 1: displayClockWithMario(); break;
-        case 2: displayClockWithSpaceInvader(); break;
-        case 3: displayLargeClock(); break;
-        case 4: displayClockWithPong(); break;
-        case 5: displayClockWithPacman(); break;
-        case 6: displayClockWithSnake(); break;
-        case 7: displayClockWithTetris(); break;
-        case 8: displayClockWithAsteroids(); break;
-        case 9: displayClockWithDino(); break;
-        case 10: displayClockWithTron(); break;
+    // Skip disabled entries. parseCycleConfig guarantees at least one is left.
+    for (unsigned n = 0; n < CYCLE_COUNT && !entries[index].seconds; ++n) {
+        index = (index + 1) % CYCLE_COUNT;
+        started = now;
+    }
+
+    if (lastStyle != entries[index].style) {
+        resetClockAnimationState();
+        lastStyle = entries[index].style;
+    }
+
+    // Each draw function handles the no-time case with its own message.
+    switch (entries[index].style) {
+        case 0: displayClockWithMario(); break;
+        case 1: displayStandardClock(); break;
+        case 2: displayLargeClock(); break;
+        case 3: displayClockWithSpaceInvader(); break;
+        case 5: displayClockWithPong(); break;
+        case 6: displayClockWithPacman(); break;
+        case 7: displayClockWithSnake(); break;
+        case 8: displayClockWithTetris(); break;
+        case 10: displayClockWithAsteroids(); break;
+        case 11: displayClockWithDino(); break;
+        case 16: displayClockWithTron(); break;
     }
 }
 
@@ -481,10 +503,7 @@ void loop() {
           manualClockMode = false;
           Serial.println("Touch button: Clock -> metrics");
         } else {
-          settings.clockStyle = nextClockStyle(settings.clockStyle);
-          resetClockAnimationState();
-          Serial.print("Touch button: Clock style -> ");
-          Serial.println(settings.clockStyle);
+          advanceClockStyleFromTouch();
         }
       } else if (metricsStop) {
         manualClockMode = true;
@@ -494,10 +513,7 @@ void loop() {
         vizNoteForced();
         Serial.println("Touch button: Clock -> visualizer");
       } else {
-        settings.clockStyle = nextClockStyle(settings.clockStyle);
-        resetClockAnimationState();
-        Serial.print("Touch button: Clock style -> ");
-        Serial.println(settings.clockStyle);
+        advanceClockStyleFromTouch();
       }
     }
   }

@@ -125,9 +125,16 @@ static const char PAGE_HTML[] PROGMEM = R"PAGE(<!doctype html>
                   <option value="10" %SEL_CLOCKSTYLE_10%>Asteroids</option>
                   <option value="11" %SEL_CLOCKSTYLE_11%>Dino Runner</option>
                   <option value="16" %SEL_CLOCKSTYLE_16%>TRON</option>
-                  <option value="9" %SEL_CLOCKSTYLE_9%>Cycle All Styles (each 5m)</option>
+                  <option value="9" %SEL_CLOCKSTYLE_9%>Custom rotation</option>
                 </select>
               </div>
+            </div>
+
+            <div class="subcard" id="cycleSettings" style="display:none">
+              <h3>Clock rotation</h3>
+              <p class="field-hint">Enable clocks, move them into order, and set seconds per clock (5-3600).</p>
+              <input type="hidden" id="cycleConfig" name="cycleConfig" value="%V_CYCLECONFIG%">
+              <div id="cycleRows"></div>
             </div>
 
             <!-- Mario -->
@@ -1114,8 +1121,8 @@ var refSel = $('#refreshRateMode');
 if (refSel) { var fr = function () { toggle($('#refreshRateFields'), refSel.value === '1'); }; refSel.addEventListener('change', fr); fr(); }
 var marioEnc = $('#marioIdleEncounters');
 if (marioEnc) { var fe = function () { toggle($('#marioEncFields'), marioEnc.checked); }; marioEnc.addEventListener('change', fe); fe(); }
-var STYLE_PANELS = { '0':'marioSettings','3':'spaceSettings','4':'spaceSettings','5':'pongSettings','6':'pacmanSettings','7':'snakeSettings','8':'tetrisSettings','10':'asteroidsSettings','11':'dinoSettings','16':'tronSettings' };
-var ALL_PANELS = ['marioSettings','spaceSettings','pongSettings','pacmanSettings','snakeSettings','tetrisSettings','asteroidsSettings','dinoSettings','tronSettings'];
+var STYLE_PANELS = { '0':'marioSettings','3':'spaceSettings','4':'spaceSettings','5':'pongSettings','6':'pacmanSettings','7':'snakeSettings','8':'tetrisSettings','9':'cycleSettings','10':'asteroidsSettings','11':'dinoSettings','16':'tronSettings' };
+var ALL_PANELS = ['marioSettings','spaceSettings','pongSettings','pacmanSettings','snakeSettings','tetrisSettings','asteroidsSettings','dinoSettings','tronSettings','cycleSettings'];
 var clockStyle = $('#clockStyle');
 function syncClockPanels() {
 ALL_PANELS.forEach(function (id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
@@ -1123,6 +1130,28 @@ var show = STYLE_PANELS[clockStyle.value];
 if (show) { var e = document.getElementById(show); if (e) e.style.display = ''; }
 }
 if (clockStyle) { clockStyle.addEventListener('change', syncClockPanels); syncClockPanels(); }
+var cycleInput = $('#cycleConfig'), cycleRows = $('#cycleRows');
+var cycleNames = {0:'Mario',1:'Standard',2:'Large',3:'Space Invaders',5:'Arkanoid',6:'Pac-Man',7:'Snake',8:'Tetris',10:'Asteroids',11:'Dino Runner',16:'TRON'};
+if (cycleInput && cycleRows) {
+var cycleItems = cycleInput.value.split(',').map(function (v) { var p = v.split(':'); return { id: Number(p[0]), seconds: Number(p[1]), enabled: Number(p[1]) > 0 }; });
+Object.keys(cycleNames).forEach(function (k) { var id = Number(k); if (!cycleItems.some(function (v) { return v.id === id; })) cycleItems.push({ id: id, seconds: 300, enabled: false }); });
+function saveCycle() { cycleInput.value = cycleItems.map(function (v) { return v.id + ':' + (v.enabled ? v.seconds : 0); }).join(','); cycleInput.dispatchEvent(new Event('change', { bubbles: true })); }
+function drawCycle() {
+cycleRows.innerHTML = '';
+cycleItems.forEach(function (v, i) {
+var row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap';
+var check = document.createElement('input'); check.type = 'checkbox'; check.checked = v.enabled; check.setAttribute('aria-label', 'Include ' + cycleNames[v.id]);
+check.onchange = function () { v.enabled = check.checked; if (!v.seconds) v.seconds = 300; saveCycle(); }; row.appendChild(check);
+var label = document.createElement('span'); label.textContent = cycleNames[v.id]; label.style.minWidth = '125px'; row.appendChild(label);
+var duration = document.createElement('input'); duration.type = 'number'; duration.min = 5; duration.max = 3600; duration.value = v.seconds || 300; duration.style.width = '88px'; duration.setAttribute('aria-label', cycleNames[v.id] + ' seconds');
+duration.onchange = function () { v.seconds = Math.max(5, Math.min(3600, Number(duration.value) || 300)); duration.value = v.seconds; saveCycle(); }; row.appendChild(duration);
+var unit = document.createElement('span'); unit.textContent = 'seconds'; row.appendChild(unit);
+[-1, 1].forEach(function (d) { var b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = d < 0 ? 'Up' : 'Down'; b.disabled = i + d < 0 || i + d >= cycleItems.length; b.onclick = function () { var other = cycleItems[i + d]; cycleItems[i + d] = v; cycleItems[i] = other; saveCycle(); drawCycle(); }; row.appendChild(b); });
+cycleRows.appendChild(row);
+});
+}
+drawCycle();
+}
 var dn = $('#deviceName');
 if (dn) dn.addEventListener('input', function () {
 var v = dn.value.toLowerCase() || 'smalloled';

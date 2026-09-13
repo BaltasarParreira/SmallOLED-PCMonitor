@@ -11,6 +11,7 @@
 #include "../network/network.h"
 #include "../utils/utils.h"
 #include "../clocks/clocks.h"
+#include "../clocks/cycle_config.h"
 #include "../display/display.h"
 #include "../timezones.h"
 #include "../viz/visualizer.h"
@@ -533,6 +534,7 @@ static bool resolvePlaceholder(const char* n, String& out) {
   }
 
   // --- Per-setting placeholders (auto-generated, see gen_template.py) ---
+  if (!strcmp(n, "V_CYCLECONFIG")) { out = settings.cycleConfig; return true; }
   if (!strcmp(n, "SEL_CLOCKSTYLE_0")) { out = String(settings.clockStyle == 0 ? "selected" : ""); return true; }
   if (!strcmp(n, "SEL_CLOCKSTYLE_1")) { out = String(settings.clockStyle == 1 ? "selected" : ""); return true; }
   if (!strcmp(n, "SEL_CLOCKSTYLE_2")) { out = String(settings.clockStyle == 2 ? "selected" : ""); return true; }
@@ -941,6 +943,15 @@ void validateSettings() {
 }
 
 void handleSave() {
+ if (server.hasArg("cycleConfig")) {
+ String cycle = server.arg("cycleConfig");
+ CycleEntry checkedCycle[CYCLE_COUNT];
+ if (cycle.length() >= sizeof(settings.cycleConfig) || !parseCycleConfig(cycle.c_str(), checkedCycle)) {
+ server.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid rotation: enable a clock and use 5-3600 seconds\"}");
+ return;
+ }
+ strcpy(settings.cycleConfig, cycle.c_str());
+ }
  if (server.hasArg("clockStyle")) {
  settings.clockStyle = server.arg("clockStyle").toInt();
  }
@@ -1508,6 +1519,7 @@ void handleExportConfig() {
 
  // Clock settings
  json += "\"clockStyle\":" + String(settings.clockStyle) + ",";
+ json += "\"cycleConfig\":\"" + String(settings.cycleConfig) + "\",";
  json += "\"timezoneString\":\"" + String(settings.timezoneString) + "\",";
  json += "\"gmtOffset\":" + String(settings.gmtOffset) + ",";
  json += "\"daylightSaving\":" + String(settings.daylightSaving ? "true" : "false") + ",";
@@ -1762,6 +1774,15 @@ void handleImportConfig() {
  }
 
  // Import clock settings
+ if (!doc["cycleConfig"].isNull()) {
+ const char* cycle = doc["cycleConfig"];
+ CycleEntry checkedCycle[CYCLE_COUNT];
+ if (!cycle || strlen(cycle) >= sizeof(settings.cycleConfig) || !parseCycleConfig(cycle, checkedCycle)) {
+ server.send(400, "application/json", "{\"success\":false,\"message\":\"Invalid rotation\"}");
+ return;
+ }
+ strcpy(settings.cycleConfig, cycle);
+ }
  if (!doc["clockStyle"].isNull()) settings.clockStyle = doc["clockStyle"];
  if (!doc["timezoneString"].isNull()) {
  const char* tz = doc["timezoneString"];
