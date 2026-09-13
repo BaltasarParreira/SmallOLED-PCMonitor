@@ -89,22 +89,67 @@ static unsigned long buttonPressStartTime = 0;  // Track when button was pressed
 static bool buttonIsPressed = false;  // Button is currently pressed (after debounce)
 static bool buttonHandled = false;  // Button action already handled
 
+// The touch pin is configurable at runtime because the GPIO the TTP223 lands
+// on is a board decision, not a firmware one - the reference wiring uses GPIO 7
+// but the sponsored carrier PCB routes it to GPIO 21. TOUCH_BUTTON_PIN stays
+// the default for a device that has never been configured.
+bool isValidTouchPin(int pin) {
+  if (pin < 0 || pin > TOUCH_PIN_MAX) return false;
+  if (pin >= 11 && pin <= 17) return false; // SPI flash bus + VDD_SPI
+#if ARDUINO_USB_CDC_ON_BOOT
+  if (pin == 18 || pin == 19) return false; // USB D-/D+ carries Serial and OTA-less reflashing
+#endif
+#if DISPLAY_INTERFACE == 1
+  if (pin == SPI_MOSI_PIN || pin == SPI_SCK_PIN || pin == SPI_CS_PIN ||
+      pin == SPI_DC_PIN) return false;
+  if (SPI_RST_PIN >= 0 && pin == SPI_RST_PIN) return false;
+#else
+  if (pin == I2C_SDA_PIN || pin == I2C_SCL_PIN) return false;
+#endif
+#if LED_PWM_ENABLED
+  if (pin == LED_PWM_PIN) return false;
+#endif
+  return true;
+}
+
+const char* touchPinNote(int pin) {
+  switch (pin) {
+    case 2: case 8: case 9: return "strapping";
+    case 18: case 19: return "USB";
+    case 20: return "UART0 RX";
+    case 21: return "UART0 TX";
+    default: return "";
+  }
+}
+
+void applyTouchButtonPin(uint8_t pin) {
+  if (!isValidTouchPin(pin)) return;
+  if (pin != settings.touchButtonPin) {
+    pinMode(settings.touchButtonPin, INPUT); // drop the pulldown on the old pin
+    settings.touchButtonPin = pin;
+  }
+  initTouchButton();
+}
+
 void initTouchButton() {
-  pinMode(TOUCH_BUTTON_PIN, INPUT_PULLDOWN);
-  lastButtonState = digitalRead(TOUCH_BUTTON_PIN);
+  if (!isValidTouchPin(settings.touchButtonPin)) {
+    settings.touchButtonPin = TOUCH_BUTTON_PIN;
+  }
+  pinMode(settings.touchButtonPin, INPUT_PULLDOWN);
+  lastButtonState = digitalRead(settings.touchButtonPin);
   lastDebounceTime = millis();
   buttonIsPressed = false;
   buttonHandled = false;
 
   Serial.print("Touch button initialized on GPIO ");
-  Serial.print(TOUCH_BUTTON_PIN);
+  Serial.print(settings.touchButtonPin);
   Serial.print(" (active ");
   Serial.print(TOUCH_ACTIVE_LEVEL == HIGH ? "HIGH" : "LOW");
   Serial.println(")");
 }
 
 bool checkTouchButtonPressed() {
-  int reading = digitalRead(TOUCH_BUTTON_PIN);
+  int reading = digitalRead(settings.touchButtonPin);
   bool pressed = false;
 
   // Check if button state changed (noise or actual press)
@@ -149,7 +194,7 @@ bool checkTouchButtonPressed() {
 void resetTouchButtonState() {
   buttonIsPressed = false;
   buttonHandled = false;
-  lastButtonState = digitalRead(TOUCH_BUTTON_PIN);
+  lastButtonState = digitalRead(settings.touchButtonPin);
 }
 
 #endif

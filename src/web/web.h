@@ -40,6 +40,11 @@ void handleStatus();
 void handleDisplayOn();
 void handleDisplayOff();
 void handleSetBrightness();
+#if LED_PWM_ENABLED
+void handleLedOn();
+void handleLedOff();
+void handleLedBrightness();
+#endif
 void handleModeClock();
 void handleModeAuto();
 void handleModeViz();

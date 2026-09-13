@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "../config/config.h"
 #include "../timezones.h"
+#include "../utils/utils.h"
 #include <Preferences.h>
 
 
@@ -59,6 +60,9 @@ void loadSettings() {
     settings.boostAnimationRefresh =
         true;                        // Default: Enable smooth animation boost
     settings.displayBrightness = sanitizeBrightnessValue(255);
+#if TOUCH_BUTTON_ENABLED
+    settings.touchButtonPin = TOUCH_BUTTON_PIN;
+#endif
     settings.enableScheduledDimming = false;
     settings.dimStartHour = 22;
     settings.dimEndHour = 7;
@@ -249,6 +253,18 @@ void loadSettings() {
 #if LED_PWM_ENABLED
   settings.ledEnabled = preferences.getBool("ledEnabled", false); // Default: Off
   settings.ledBrightness = preferences.getUChar("ledBright", 128); // Default: 50%
+#endif
+#if TOUCH_BUTTON_ENABLED
+  settings.touchButtonPin = preferences.getUChar("touchPin", TOUCH_BUTTON_PIN);
+  if (!isValidTouchPin(settings.touchButtonPin)) {
+    // A config imported from a different board revision, or a build whose pin
+    // assignments moved, can name a pin this firmware cannot use.
+    Serial.print("WARNING: saved touch pin GPIO ");
+    Serial.print(settings.touchButtonPin);
+    Serial.print(" is not usable, falling back to GPIO ");
+    Serial.println(TOUCH_BUTTON_PIN);
+    settings.touchButtonPin = TOUCH_BUTTON_PIN;
+  }
 #endif
   settings.marioBounceHeight =
       preferences.getUChar("marioBnceH", 35); // Default: 3.5
@@ -545,6 +561,9 @@ void saveSettings() {
 #if LED_PWM_ENABLED
   preferences.putBool("ledEnabled", settings.ledEnabled);
   preferences.putUChar("ledBright", settings.ledBrightness);
+#endif
+#if TOUCH_BUTTON_ENABLED
+  preferences.putUChar("touchPin", settings.touchButtonPin);
 #endif
   preferences.putUChar("marioBnceH", settings.marioBounceHeight);
   preferences.putUChar("marioBnceS", settings.marioBounceSpeed);

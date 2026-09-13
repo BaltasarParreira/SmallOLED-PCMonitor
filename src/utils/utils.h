@@ -21,9 +21,26 @@ void assertBounds(int value, int minVal, int maxVal, const char* name);
 
 #if TOUCH_BUTTON_ENABLED
 // ========== Touch Button Functions ==========
+// Highest GPIO number on the ESP32-C3.
+#define TOUCH_PIN_MAX 21
+
 void initTouchButton();
 bool checkTouchButtonPressed();
 void resetTouchButtonState();
+
+// True when `pin` can physically host the touch input on this build: rejects
+// the SPI flash pins, the display bus and any GPIO another peripheral already
+// owns. Everything that can reach settings.touchButtonPin - the web form, an
+// imported config, a stale NVS value - goes through this first.
+bool isValidTouchPin(int pin);
+
+// Short note for a pin that works but costs something (strapping, UART0,
+// USB). Empty string for an unencumbered pin.
+const char* touchPinNote(int pin);
+
+// Move the touch input to `pin`, releasing the previous one. Ignores an
+// invalid pin. Takes effect immediately, no restart needed.
+void applyTouchButtonPin(uint8_t pin);
 #endif
 
 #if LED_PWM_ENABLED

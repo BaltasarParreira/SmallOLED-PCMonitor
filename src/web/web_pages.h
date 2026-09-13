@@ -774,6 +774,8 @@ static const char PAGE_HTML[] PROGMEM = R"PAGE(<!doctype html>
               </div>
             </div>
           </div>
+
+          %TOUCH_PIN_CARD%
         </section>
 
         <!-- DISPLAY LAYOUT -->
@@ -1101,6 +1103,8 @@ var fixed = parseInt(inp.dataset.fixed || '0', 10);
 span.textContent = (inp.value / div).toFixed(fixed) + suf;
 }
 $$('input[type="range"]').forEach(function (inp) { fmtRange(inp); inp.addEventListener('input', function () { fmtRange(inp); }); });
+var ledSlider = $('#ledBrightness'), ledTimer = null;
+if (ledSlider) ledSlider.addEventListener('input', function () { clearTimeout(ledTimer); ledTimer = setTimeout(function () { fetch('/api/led/brightness?raw=1&save=0&value=' + ledSlider.value).catch(function () {}); }, 120); });
 function toggle(el, on) { if (el) el.style.display = on ? '' : 'none'; }
 var nightChk = $('#enableScheduledDimming');
 if (nightChk) { var fn = function () { toggle($('#nightFields'), nightChk.checked); }; nightChk.addEventListener('change', fn); fn(); }

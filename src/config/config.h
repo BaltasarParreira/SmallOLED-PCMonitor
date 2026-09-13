@@ -88,6 +88,11 @@ struct Settings {
   uint8_t ledBrightness;        // LED brightness 0-255 (default: 128 = 50%)
 #endif
 
+  // Touch button
+#if TOUCH_BUTTON_ENABLED
+  uint8_t touchButtonPin;       // GPIO carrying the TTP223 signal (default: TOUCH_BUTTON_PIN)
+#endif
+
   // Format options
   bool useRpmKFormat;       // Show RPM as K (e.g., 1.2K instead of 1200)
   bool useNetworkMBFormat;  // Show network as MB/s instead of KB/s

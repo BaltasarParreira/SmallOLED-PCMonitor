@@ -65,6 +65,11 @@ void setupWebServer() {
  server.on("/api/display/on", HTTP_GET, handleDisplayOn);
  server.on("/api/display/off", HTTP_GET, handleDisplayOff);
  server.on("/api/display/brightness", HTTP_GET, handleSetBrightness);
+#if LED_PWM_ENABLED
+ server.on("/api/led/on", HTTP_GET, handleLedOn);
+ server.on("/api/led/off", HTTP_GET, handleLedOff);
+ server.on("/api/led/brightness", HTTP_GET, handleLedBrightness);
+#endif
  server.on("/api/mode/clock", HTTP_GET, handleModeClock);
  server.on("/api/mode/auto", HTTP_GET, handleModeAuto);
  server.on("/api/mode/viz", HTTP_GET, handleModeViz);
@@ -238,6 +243,52 @@ void handleSetBrightness() {
  server.send(200, "application/json",
              "{\"success\":true,\"brightness\":" + String(value) + "}");
 }
+
+#if LED_PWM_ENABLED
+// GET /api/led/on - turn the filament night light on at its stored brightness
+void handleLedOn() {
+ enableLED(true);
+ saveSettings();
+ server.sendHeader("Access-Control-Allow-Origin", "*");
+ server.send(200, "application/json",
+             "{\"success\":true,\"ledOn\":true,\"brightness\":" +
+             String((settings.ledBrightness * 100) / 255) + "}");
+}
+
+// GET /api/led/off - turn the filament night light off
+void handleLedOff() {
+ enableLED(false);
+ saveSettings();
+ server.sendHeader("Access-Control-Allow-Origin", "*");
+ server.send(200, "application/json", "{\"success\":true,\"ledOn\":false}");
+}
+
+// GET /api/led/brightness?value=0-100 - set night light brightness; 0 turns it off
+// Optional raw=1 takes the value as an 8-bit PWM duty (0-255) instead of a
+// percentage, and save=0 applies it without touching flash. The config page
+// uses both so dragging the slider dims the LED live without wearing out NVS;
+// the form's Save button is what persists it.
+void handleLedBrightness() {
+ server.sendHeader("Access-Control-Allow-Origin", "*");
+ if (!server.hasArg("value")) {
+   server.send(400, "application/json", "{\"error\":\"Missing value (0-100)\"}");
+   return;
+ }
+ bool raw = server.hasArg("raw") && server.arg("raw") != "0";
+ int maxValue = raw ? 255 : 100;
+ int value = server.arg("value").toInt();
+ if (value < 0) value = 0;
+ if (value > maxValue) value = maxValue;
+ settings.ledBrightness = raw ? (uint8_t)value : (uint8_t)((value * 255) / 100);
+ settings.ledEnabled = settings.ledBrightness > 0;
+ setLEDBrightness(settings.ledBrightness);
+ if (!server.hasArg("save") || server.arg("save") != "0") saveSettings();
+ server.send(200, "application/json",
+             "{\"success\":true,\"ledOn\":" +
+             String(settings.ledEnabled ? "true" : "false") +
+             ",\"brightness\":" + String((settings.ledBrightness * 100) / 255) + "}");
+}
+#endif
 
 #if VIZ_DEBUG_FB
 // GET /api/debug/fb - dump the 1-bit framebuffer as a PBM (P4) image.
@@ -460,6 +511,25 @@ static bool resolvePlaceholder(const char* n, String& out) {
     out = R"LED(<div class="field" style="margin-top:16px"><label class="field-label" for="ledBrightness">LED night light</label><div class="range-row"><input type="range" name="ledBrightness" id="ledBrightness" min="0" max="255" step="5" value=")LED" + String(settings.ledBrightness) + R"LED(" data-pct="1"><span class="range-val" data-for="ledBrightness">)LED" + String((settings.ledBrightness * 100) / 255) + R"LED(%</span></div><p class="field-hint">Optional LED night light (0-100%). Toggle via touch-button long press (hold 1s). Requires a connected LED.</p></div>)LED";
 #endif
     return true; // resolved to "" when LED is disabled, so the slider is omitted
+  }
+
+  // --- Touch button pin selector (only when the touch button is compiled in) ---
+  if (!strcmp(n, "TOUCH_PIN_CARD")) {
+#if TOUCH_BUTTON_ENABLED
+    String opts;
+    for (int pin = 0; pin <= TOUCH_PIN_MAX; pin++) {
+      if (!isValidTouchPin(pin)) continue;
+      const char* note = touchPinNote(pin);
+      opts += "<option value=\"" + String(pin) + "\"" +
+              (settings.touchButtonPin == pin ? " selected" : "") + ">GPIO " + String(pin);
+      if (pin == TOUCH_BUTTON_PIN) opts += " (default)";
+      if (*note) opts += " - " + String(note);
+      opts += "</option>";
+    }
+    out = R"TP(<div class="card"><h2 class="card-title">Touch button</h2><div class="field" style="margin-bottom:0"><label class="field-label" for="touchButtonPin">TTP223 signal pin</label><div class="select-wrap"><select name="touchButtonPin" id="touchButtonPin">)TP" + opts +
+          R"TP(</select></div><p class="field-hint">GPIO the touch sensor's SIG line is wired to. Pins used by the flash, the display bus, the USB port and the LED output are not listed. A pin marked <strong>strapping</strong> is read at power-up, so a sensor idling the wrong way can stop the board booting; <strong>UART0</strong> pins cost the serial console. Takes effect on save, no restart needed.</p></div></div>)TP";
+#endif
+    return true; // resolves to "" without a touch button, hiding the card
   }
 
   // --- Per-setting placeholders (auto-generated, see gen_template.py) ---
@@ -961,10 +1031,21 @@ void handleSave() {
  }
  }
 
+#if TOUCH_BUTTON_ENABLED
+ // Save touch button pin (rejects anything the hardware cannot drive)
+ if (server.hasArg("touchButtonPin")) {
+ int newTouchPin = server.arg("touchButtonPin").toInt();
+ if (isValidTouchPin(newTouchPin) && newTouchPin != settings.touchButtonPin) {
+ applyTouchButtonPin((uint8_t)newTouchPin); // rebinds the input immediately
+ }
+ }
+#endif
+
 #if LED_PWM_ENABLED
  // Save LED brightness
  if (server.hasArg("ledBrightness")) {
  settings.ledBrightness = server.arg("ledBrightness").toInt();
+ settings.ledEnabled = settings.ledBrightness > 0; // slider drives on/off
  setLEDBrightness(settings.ledBrightness); // Apply immediately
  }
 #endif
@@ -1451,6 +1532,9 @@ void handleExportConfig() {
  json += "\"refreshRateMode\":" + String(settings.refreshRateMode) + ",";
  json += "\"refreshRateHz\":" + String(settings.refreshRateHz) + ",";
  json += "\"displayBrightness\":" + String(settings.displayBrightness) + ",";
+#if TOUCH_BUTTON_ENABLED
+ json += "\"touchButtonPin\":" + String(settings.touchButtonPin) + ",";
+#endif
  json += "\"dimStartHour\":" + String(settings.dimStartHour) + ",";
  json += "\"dimEndHour\":" + String(settings.dimEndHour) + ",";
  json += "\"dimBrightness\":" + String(settings.dimBrightness) + ",";
@@ -1728,6 +1812,12 @@ void handleImportConfig() {
  if (!doc["refreshRateMode"].isNull()) settings.refreshRateMode = doc["refreshRateMode"];
  if (!doc["refreshRateHz"].isNull()) settings.refreshRateHz = doc["refreshRateHz"];
  if (!doc["displayBrightness"].isNull()) settings.displayBrightness = doc["displayBrightness"];
+#if TOUCH_BUTTON_ENABLED
+ if (!doc["touchButtonPin"].isNull()) {
+ int importedTouchPin = doc["touchButtonPin"];
+ if (isValidTouchPin(importedTouchPin)) applyTouchButtonPin((uint8_t)importedTouchPin);
+ }
+#endif
  if (!doc["dimStartHour"].isNull()) settings.dimStartHour = doc["dimStartHour"];
  if (!doc["dimEndHour"].isNull()) settings.dimEndHour = doc["dimEndHour"];
  if (!doc["dimBrightness"].isNull()) settings.dimBrightness = doc["dimBrightness"];
