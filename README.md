@@ -216,7 +216,7 @@ Once connected to WiFi, access the full configuration page:
 ![ESP32 Web Portal - Clock Settings](img/ESP-WEBPortal1.png)
 
 2. **Clock Settings:**
-   - Idle clock style (Mario, Space Invaders, Arkanoid, Pac-Man, Snake, Tetris, Asteroids, Dino Runner, Standard, or Large, plus a Cycle All mode)
+   - Idle clock style (Mario, Space Invaders, Arkanoid, Pac-Man, Snake, Tetris, Asteroids, Dino Runner, TRON, Standard, or Large, plus a Cycle All mode)
    - Time format (12/24 hour)
    - Date format (DD/MM/YYYY, MM/DD/YYYY, or YYYY-MM-DD)
 
@@ -437,17 +437,32 @@ These require manual configuration by editing the ESP32_IP in the script file.
 
 The OLED will display:
 - **PC Online**: Real-time stats (CPU, RAM, GPU temp, disk, fan speed)
-- **PC Offline**: Animated clock (choose from 10 styles in the web portal, or a Cycle All mode that rotates through them)
+- **PC Offline**: Animated clock (choose from 11 styles in the web portal, or a Cycle All mode that rotates through them)
 
 ### Display Modes
 
 **When PC is Online (receiving stats):**
+
+![PC stats display](img/screens/stats.gif)
+
+*5-row layout: pump speed and clock on the top row, CPU / GPU / RAM each with a progress bar, power draw and network below. Values move as the machine picks up a workload and cools back down.*
+
 - Real-time monitoring display with customizable labels
 - Shows CPU usage/temp, RAM usage, GPU temp, Disk usage, Fan/Pump speed
 - Progress bars for visual representation
 - Automatically switches when PC sends data
 
 **When PC is Offline (idle mode):**
+
+Every clock below is captured at the 09:59 -> 10:00 rollover, the busiest case, since all four digits change at once.
+
+| | | |
+|:---:|:---:|:---:|
+| ![Mario Clock](img/clocks/mario.gif)<br>**Mario** | ![Space Invaders Clock](img/clocks/space.gif)<br>**Space Invaders** | ![Arkanoid Clock](img/clocks/arkanoid.gif)<br>**Arkanoid** |
+| ![Pac-Man Clock](img/clocks/pacman.gif)<br>**Pac-Man** | ![Snake Clock](img/clocks/snake.gif)<br>**Snake** | ![Tetris Clock](img/clocks/tetris.gif)<br>**Tetris** |
+| ![Asteroids Clock](img/clocks/asteroids.gif)<br>**Asteroids** | ![Dino Runner Clock](img/clocks/dino.gif)<br>**Dino Runner** | ![TRON Clock](img/clocks/tron.gif)<br>**TRON** |
+| ![Standard Clock](img/clocks/standard.gif)<br>**Standard** | ![Large Clock](img/clocks/large.gif)<br>**Large** | |
+
 - **Mario Clock**: Animated pixel Mario that jumps to "hit" digits when time changes
 - **Space Invaders Clock**: Invader/ship shoots lasers to change digits
 - **Arkanoid Clock**: Breakout-style ball physics destroy and rebuild digits
@@ -509,6 +524,10 @@ The companion app lets you select any sensor available on your system:
 
 The display can show what your PC is playing: 32 spectrum bars or an
 oscilloscope trace, updated about 25 times a second.
+
+| | | |
+|:---:|:---:|:---:|
+| ![Classic EQ](img/screens/viz-eq.gif)<br>**Classic EQ** | ![Mirror EQ](img/screens/viz-mirror.gif)<br>**Mirror EQ** | ![Oscilloscope](img/screens/viz-scope.gif)<br>**Oscilloscope** |
 
 This is a **forced mode**, not a clock style. It needs a live audio stream, so
 it is switched on deliberately rather than sitting in the clock rotation, and it
