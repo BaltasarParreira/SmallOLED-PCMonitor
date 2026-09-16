@@ -88,6 +88,16 @@ static unsigned long lastDebounceTime = 0;
 static unsigned long buttonPressStartTime = 0;  // Track when button was pressed
 static bool buttonIsPressed = false;  // Button is currently pressed (after debounce)
 static bool buttonHandled = false;  // Button action already handled
+// Sampled once at release so every consumer classifies the same number. Both
+// checkTouchButtonPressed() and handleTouchLED() act on one press, but they run
+// in different loop iterations, and the work the short press kicks off
+// (saveSettings() is ~200 ms of NVS) used to inflate a re-read of the elapsed
+// time past the medium-press threshold - one tap switched the clock AND
+// toggled the LED.
+static unsigned long lastPressDuration = 0;
+
+static const unsigned long MEDIUM_PRESS_THRESHOLD = 500;
+static const unsigned long LONG_PRESS_THRESHOLD = 1000;
 
 // The touch pin is configurable at runtime because the GPIO the TTP223 lands
 // on is a board decision, not a firmware one - the reference wiring uses GPIO 7
@@ -169,12 +179,12 @@ bool checkTouchButtonPressed() {
     // Button just released (after debounce)
     else if (reading != TOUCH_ACTIVE_LEVEL && buttonIsPressed) {
       buttonIsPressed = false;
+      lastPressDuration = millis() - buttonPressStartTime;
       if (!buttonHandled) {
-        unsigned long pressDuration = millis() - buttonPressStartTime;
 #if LED_PWM_ENABLED
         // Only fire short press for quick taps (< 500ms)
         // Medium press (500-1000ms) is handled by handleTouchLED()
-        if (pressDuration < 500) {
+        if (lastPressDuration < MEDIUM_PRESS_THRESHOLD) {
           pressed = true;
           Serial.println("Touch button PRESSED (short press)");
         }
@@ -194,6 +204,7 @@ bool checkTouchButtonPressed() {
 void resetTouchButtonState() {
   buttonIsPressed = false;
   buttonHandled = false;
+  lastPressDuration = 0;
   lastButtonState = digitalRead(settings.touchButtonPin);
 }
 
@@ -241,6 +252,7 @@ void enableLED(bool enable) {
 extern bool buttonIsPressed;  // Referenced from touch button code above
 extern unsigned long buttonPressStartTime;
 extern bool buttonHandled;
+extern unsigned long lastPressDuration;
 
 // Gamma correction: maps linear position (0-255) to perceived brightness
 // Quadratic approximation of gamma ~2.0 — no floats in hot path
@@ -250,8 +262,6 @@ static uint8_t gammaCorrect(uint8_t pos) {
   return val >= 255 ? 254 : val;
 }
 
-static const unsigned long MEDIUM_PRESS_THRESHOLD = 500;
-static const unsigned long LONG_PRESS_THRESHOLD = 1000;
 static const unsigned long LED_RAMP_INTERVAL_MS = 10; // 10ms per step → ~2.5s full range
 
 void handleTouchLED() {
@@ -315,7 +325,7 @@ void handleTouchLED() {
       saveSettings();
     } else {
       // Check for medium press (500ms-1000ms) → toggle LED
-      if (pressDuration >= MEDIUM_PRESS_THRESHOLD && pressDuration < LONG_PRESS_THRESHOLD) {
+      if (lastPressDuration >= MEDIUM_PRESS_THRESHOLD && lastPressDuration < LONG_PRESS_THRESHOLD) {
         enableLED(!settings.ledEnabled);
         saveSettings();
         Serial.println(settings.ledEnabled ? "Medium press: LED ON" : "Medium press: LED OFF");
