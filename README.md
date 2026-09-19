@@ -93,9 +93,8 @@ There is now a 27 x 27 mm carrier PCB that holds the ESP32-C3 SuperMini, the OLE
 4. **Get the companion app (v4 - recommended on both Windows and Linux):**
    - **Windows (easiest):** download `pc_stats_monitor_v4.exe` from the [latest release](https://github.com/Keralots/SmallOLED-PCMonitor/releases/latest) and double-click it - no Python needed. v4 gives a polished **web-style config window** (1:1 device preview, drag-and-drop layout, sensor picker, number formats, quick templates) that lives in the system tray. On the first run Windows SmartScreen may say *"Windows protected your PC"* - the exe is unsigned, so click **More info -> Run anyway**. This is normal for small unsigned tools.
    - **Linux:** `cd PC-Companion-App-v4/linux-companion`, then `python3 -m pip install -r requirements.txt` and `python3 pc_stats_monitor_v4_linux.py` (no build step). Same UI; opens a native window or your browser.
-   - **Classic scripts (legacy):** the older `pc_stats_monitor_v2.py` (Windows) / `pc_stats_monitor_v2_linux.py` (Linux) still work if you prefer them.
 5. **Configure in GUI** - Enter ESP32 IP address, select the sensors you want, click "Save & Start"
-6. **Position metrics** - In the v4 app use the **Layout & preview** page; with the v2 script, open the ESP32 IP in a browser and drag metrics on the preview
+6. **Position metrics** - use the app's **Layout & preview** page, or open the ESP32 IP in a browser and drag metrics on the device's own preview
 
 Done! Your PC stats will now appear on the OLED display.
 
@@ -257,17 +256,11 @@ Once connected to WiFi, access the full configuration page:
 > all from the desktop, hosted in a native window + system tray.
 > - **Windows:** prebuilt **`pc_stats_monitor_v4.exe`** on the [latest release page](https://github.com/Keralots/SmallOLED-PCMonitor/releases/latest) - no Python needed. First run may trip Windows SmartScreen (unsigned exe): **More info -> Run anyway**. Source and the full guide live in [`PC-Companion-App-v4/win-companion/`](PC-Companion-App-v4/win-companion/).
 > - **Linux:** run from source in [`PC-Companion-App-v4/linux-companion/`](PC-Companion-App-v4/linux-companion/) (`pip install -r requirements.txt` then `python3 pc_stats_monitor_v4_linux.py`).
->
-> **Legacy:** the classic **`pc_stats_monitor_v2.py`** /
-> **`pc_stats_monitor_v2_linux.py`** scripts below still work if you prefer them.
 
-#### Prerequisites (legacy v2 script)
-- **Python 3.7+**
-- **LibreHardwareMonitor** (for hardware sensor monitoring)
-- **Note:** LibreHardwareMonitor 0.9.5+ changed its WMI backend. The Python script automatically detects this and falls back to the REST API. If using 0.9.5+, enable "Options > Remote Web Server > Run" in LibreHardwareMonitor.
+#### Installing Python (only if you run from source)
 
-#### Installing Python:
-For windows download [e.g. this version](https://www.python.org/ftp/python/3.14.2/python-3.14.2-amd64.exe)
+The Windows exe bundles its own Python, so skip this unless you run the app from source (always the case on Linux).
+For Windows download [e.g. this version](https://www.python.org/ftp/python/3.14.2/python-3.14.2-amd64.exe)
 Check both checkboxes on installation screen (to use admin rights and add python.exe to PATH)
 
 <img width="654" height="414" alt="Screenshot 2025-12-07 132252" src="https://github.com/user-attachments/assets/07d958e6-9776-4981-8971-c11d7d23d59a" />
@@ -283,6 +276,8 @@ At the end of installation, if asked to remove characters limit for path, agree 
 
 For version 0.9.5 and above check Web server option:
 ![lhw-webserver](img/LHW-WEBSERVER.png)
+
+LibreHardwareMonitor 0.9.5+ broke its WMI backend. The companion app detects that and falls back to the REST API, which is what the Web server option above serves - so on 0.9.5+ that option is not optional.
 
 
 #### Set up the companion app
@@ -302,16 +297,6 @@ python3 -m pip install -r requirements.txt
 python3 pc_stats_monitor_v4_linux.py
 ```
 
-<details>
-<summary>Legacy v2 script (optional)</summary>
-
-**Windows:** `pip install psutil pywin32 wmi pystray pillow` then `python pc_stats_monitor_v2.py`
-
-**Linux:** `pip install psutil tk` (or `sudo apt install python3-pip python3-tk -y`) then `python3 pc_stats_monitor_v2_linux.py`
-
-The v2 GUI opens automatically if no configuration exists.
-</details>
-
 ##### Step 2: Connect to your ESP32
 
 ![Companion app - connection](img/v4-connection.png)
@@ -322,6 +307,7 @@ On the **Connection** page:
 2. **UDP Port** (default 4210) and **Update Interval** (default 3s) - leave unless you changed them.
 3. **Sensor source** - leave on **Auto** (prefers the REST API, falls back to WMI). Only force a mode if you have a reason to.
 4. Click **Test connection** to confirm the device answers, then **Save connection**.
+5. **Autostart (optional).** On Windows, tick **Start with Windows** - saved instantly, launches minimized to the tray at login (per-user, no admin) and waits 10s for LibreHardwareMonitor to come up first. On Linux, `python3 pc_stats_monitor_v4_linux.py --autostart enable` installs a `smalloled-companion.service` systemd user unit (`--autostart disable` removes it).
 
 ##### Step 3: Pick the sensors to display
 
@@ -347,7 +333,7 @@ After the companion app starts sending data (arrange metrics in its **Layout & p
 3. You'll see all metrics received from your PC as draggable chips under a live OLED preview
 4. Drag a chip onto a slot (or tap a chip then a slot) to place it; optionally pair it with a companion metric. E.g. **"CPU: 10% 40C"** > shows usage and temperature of CPU.
 5. Use **progress bars** for visual representation (optional)
-6. Choose between **5-row** (more spacing) or **6-row** (compact) display modes on the Display layout page
+6. Choose between **5-row** (more spacing), **6-row** (compact) or the **large 2/3-row** display modes on the Display layout page
 
 **TIP:** Start with 1-2 metrics initially and slowly build entire layout.
 
@@ -355,96 +341,12 @@ After the companion app starts sending data (arrange metrics in its **Layout & p
 
 The display will update in real-time as you arrange metrics!
 
-##### Step 5: Enable Autostart (Optional)
-
-> **v4 app (Windows):** tick **Start with Windows** on the **Connection** page - saved instantly, launches minimized to the tray at login (per-user, no admin) and waits 10s for LibreHardwareMonitor to start first. The commands below are for the legacy v2 script.
-
-**Windows:**
-```bash
-python pc_stats_monitor_v2.py --autostart enable
-```
-
-This will:
-- Create a startup entry in Windows
-- Run minimized to system tray on boot
-- Right-click tray icon to configure or quit
-
-**Linux (systemd):**
-```bash
-python3 pc_stats_monitor_v2_linux.py --autostart enable
-```
-
-This creates a systemd user service that:
-- Starts automatically on boot
-- Restarts if it crashes
-- Check status: `systemctl --user status pc-monitor`
-- View logs: `journalctl --user -u pc-monitor -f`
-
-##### Common Commands
-
-**Edit Configuration:**
-```bash
-# Windows
-python pc_stats_monitor_v2.py --edit
-
-# Linux
-python3 pc_stats_monitor_v2_linux.py --edit
-```
-
-**Run in Background (Windows only):**
-```bash
-python pc_stats_monitor_v2.py --minimized
-```
-
-**Disable Autostart:**
-```bash
-# Windows
-python pc_stats_monitor_v2.py --autostart disable
-
-# Linux
-python3 pc_stats_monitor_v2_linux.py --autostart disable
-```
-
-##### Understanding Display Modes
-
-The firmware supports multiple display layouts:
-
-**5-Row Mode (Recommended):**
-- More spacing (13px between rows)
-- Better readability
-- Positions 0-9 available
-- 11px spacing with centered clock
-
-![5-Row Display](img/5rows.jpg)
-
-**6-Row Mode (Compact):**
-- Tighter spacing (10px between rows)
-- Fits more metrics
-- Positions 0-11 available
-
-![6-Row Display](img/6rows.jpg)
-
-**Large 2-Row / 3-Row Modes:**
-- Double-size text for readability at a distance
-- Single-column layout
-- Best for desk setups where you want a quick glance
-
-You can switch between modes in the ESP32 web interface under "Display Layout Settings".
-
-#### Legacy Script (Older Versions)
-
-If you're using firmware versions below 1.3.0, use the legacy scripts:
-- [pc_stats_monitor.py](old/pc_stats_monitor.py) for Windows
-- [pc_stats_monitor_linux.py](old/pc_stats_monitor_linux.py) for Linux
-
-These require manual configuration by editing the ESP32_IP in the script file.
-
 ## Usage
 
 ### Normal Operation
 1. **ESP32** should be powered and connected to WiFi
 2. **LibreHardwareMonitor** must be running on your PC
-3. **Python script** should be running
+3. **Companion app** should be running
 
 The OLED will display:
 - **PC Online**: Real-time stats (CPU, RAM, GPU temp, disk, fan speed)
@@ -454,13 +356,17 @@ The OLED will display:
 
 **When PC is Online (receiving stats):**
 
-![PC stats display](img/screens/stats.gif)
+There are four stats layouts, switchable in the web portal under **Display layout**. All of them take custom labels, paired companion metrics and progress bars. Each clip below runs the same workload cycle - idle, load, cool down - so you can compare them.
 
-*5-row layout: pump speed and clock on the top row, CPU / GPU / RAM each with a progress bar, power draw and network below. Values move as the machine picks up a workload and cools back down.*
+| | |
+|:---:|:---:|
+| ![5-row stats layout](img/screens/stats.gif)<br>**5 rows** - 13px spacing, positions 0-9. The default, and the easiest to read. | ![6-row stats layout](img/screens/stats-6row.gif)<br>**6 rows** - 10px spacing, positions 0-11. One more row of metrics. |
+| ![Large 3-row stats layout](img/screens/stats-large3.gif)<br>**Large 3 rows** - double-size text, single column, 3 metrics. | ![Large 2-row stats layout](img/screens/stats-large2.gif)<br>**Large 2 rows** - double-size text, 2 metrics, readable across a room. |
 
 - Real-time monitoring display with customizable labels
 - Shows CPU usage/temp, RAM usage, GPU temp, Disk usage, Fan/Pump speed
 - Progress bars for visual representation
+- The 5-row mode drops to 11px spacing when the clock is centered, to keep all five rows on screen
 - Automatically switches when PC sends data
 
 **When PC is Offline (idle mode):**
@@ -515,7 +421,7 @@ The companion app lets you select any sensor available on your system:
 
 **How to Select Sensors:**
 1. Make sure **LibreHardwareMonitor is running** (Windows) for temps/fans/GPU/power. The app falls back to its REST API on 0.9.5+.
-2. Open the companion app - double-click `pc_stats_monitor_v4.exe`, or right-click the tray icon and choose open. (Legacy: `python pc_stats_monitor_v2.py --edit`.)
+2. Open the companion app - double-click `pc_stats_monitor_v4.exe`, or right-click the tray icon and choose open
 3. Go to the **Sensors** page and browse the categories
 4. **Live current values** are shown next to each sensor to help you identify them
 5. Tick the sensors you want to monitor (up to 20)
@@ -529,7 +435,7 @@ The companion app lets you select any sensor available on your system:
 - Use the search box to quickly find specific sensors
 - Network metrics automatically distinguish between upload and download
 - You can select up to 20 different metrics
-- Labels set in Python GUI will override default names on ESP32
+- Labels set in the companion app override the default names on the ESP32
 
 ## Audio Visualizer
 
@@ -710,40 +616,34 @@ You can then call `rest_command.oled_display_off` / `oled_display_on` from an au
 - Check power supply (use quality USB cable)
 - Monitor serial output at 115200 baud for error messages
 
-### Python Script Issues (v2.0)
+### Companion App Issues
 
-**"No configuration found" - GUI won't open**
-- Make sure you have Tkinter installed (comes with Python on Windows)
-- Linux: Install with `sudo apt-get install python3-tk`
-- Check that you're running Python 3.7 or newer
+**The config window doesn't open**
+- Windows: the exe is unsigned, so SmartScreen may hold it on the first run - **More info → Run anyway**. Once it is running, right-click the tray icon to reopen the window.
+- Linux: a native window needs the system GTK/WebKit libraries (`sudo apt install gir1.2-webkit2-4.1 python3-gi`). Without them the app still runs and serves the same UI in your browser at `http://127.0.0.1:8737`.
 
-**"WMI not found" or hardware sensor errors (Windows)**
-- Make sure **LibreHardwareMonitor is running as Administrator**
-- Install dependencies: `pip install pywin32 wmi`
-- Check that WMI service is running: `services.msc` → Windows Management Instrumentation
+**Hardware sensor errors (Windows)**
+- Make sure **LibreHardwareMonitor is running as Administrator** - without admin it reports no temps, fans or power
+- Check that the WMI service is running: `services.msc` → Windows Management Instrumentation
 
-**No sensors showing in GUI (Windows)**
-- Run LibreHardwareMonitor **before** starting the Python script
-- If using LibreHardwareMonitor 0.9.5+, enable: Options → Remote Web Server → Run
-- The script will auto-detect and use the REST API when WMI is unavailable
-- Wait a few seconds after launching LibreHardwareMonitor before running Python script
+**No sensors showing (Windows)**
+- Start LibreHardwareMonitor **before** the companion app, and give it a few seconds
+- On LibreHardwareMonitor 0.9.5+, enable Options → Remote Web Server → Run. Its WMI backend is broken; the app falls back to the REST API, which that option serves
+- Leave **Sensor source** on **Auto** unless you have a reason to force a mode, then hit **Rescan sensors**
 
 **No data on ESP32 display**
-- Verify ESP32 IP address in Python GUI matches actual IP (shown on OLED)
+- Verify the ESP32 IP address on the **Connection** page matches the one shown on the OLED, and use **Test connection**
 - Check Windows Firewall isn't blocking UDP port 4210
 - Ensure both PC and ESP32 are on the same network
-- Open ESP32 web interface and check the **Visible metrics** page
-- Try running: `python pc_stats_monitor_v2.py` (not minimized) to see console output
+- Open the ESP32 web interface and check the **Visible metrics** page - metrics arrive unplaced until you position them
 
 **Autostart not working (Windows)**
-- Make sure `pywin32` is installed: `pip install pywin32`
-- Check Windows Startup folder: Press `Win + R`, type `shell:startup`
-- Look for "PC Monitor.lnk" shortcut
-- For system tray mode, install: `pip install pystray pillow`
+- The **Start with Windows** tick box writes an HKCU Run entry; check Task Manager → Startup
+- It launches minimized to the tray, so look for the tray icon rather than a window
 
 **Autostart not working (Linux)**
-- Check service status: `systemctl --user status pc-monitor`
-- View logs: `journalctl --user -u pc-monitor -f`
+- Check service status: `systemctl --user status smalloled-companion`
+- View logs: `journalctl --user -u smalloled-companion -f`
 - Make sure systemd is available on your system
 - Enable lingering (optional): `loginctl enable-linger $USER`
 
@@ -752,11 +652,13 @@ You can then call `rest_command.oled_display_off` / `oled_display_on` from an au
 - Upload/download speeds are calculated from byte deltas
 - First reading will always be 0, wait for next update cycle
 
+**Audio visualizer says "No audio data..."**
+- The device is in visualizer mode but nothing is arriving - tick **Audio visualizer stream** on the companion's Connection page
+- Linux / running from source also needs `soundcard` and `numpy`, and a PulseAudio/PipeWire monitor source for the default output
+
 **Custom labels not appearing on ESP32**
-- Labels are set in Python GUI, not ESP32 web interface
-- Run `python pc_stats_monitor_v2.py --edit` to modify labels
-- ESP32 receives the label name from Python script
-- Check that Python script successfully connects (see console output)
+- Set them on the companion's **Sensors** page (max 10 characters), then **Save & push to device**
+- They can also be set per metric in the device's own **Visible metrics** page
 
 ## Technical Details
 
@@ -764,15 +666,15 @@ You can then call `rest_command.oled_display_off` / `oled_display_on` from an au
 - **Protocol**: UDP
 - **Port**: 4210 (configurable)
 - **Format**: JSON
-- **Update Rate**: 3 seconds (configurable via GUI)
-- **Max Metrics**: 20 (increased from 12 in v1.x)
+- **Update Rate**: 3 seconds (configurable in the app)
+- **Max Metrics**: 20
+- **Audio stream**: same UDP port, ~25 packets/s, spectrum plus an optional 128-byte waveform
 
-### v2.0 Improvements
-- **JSON-based configuration** stored in `monitor_config.json` (Windows) or `monitor_config_linux.json` (Linux)
-- **Dynamic sensor discovery** - automatically detects all available sensors
+### Companion App Internals
+- **JSON configuration** in `%APPDATA%\SmallOLED-Companion\monitor_config.json` (Windows) or `~/.config/smalloled-companion/monitor_config.json` (Linux)
+- **Dynamic sensor discovery** - detects every sensor the system exposes
 - **REST API fallback** - automatic support for LibreHardwareMonitor 0.9.5+ (broken WMI)
 - **Network metrics** calculated in real-time (upload/download speeds)
-- **5-row/6-row display modes** with optimized spacing (13px vs 10px)
 - **Export/Import** configuration for easy backup and sharing
 - **Systemd integration** (Linux) for proper service management
 
@@ -784,24 +686,24 @@ You can then call `rest_command.oled_display_off` / `oled_display_on` from an au
 - Adafruit GFX
 - ArduinoJson
 
-**Python (Windows):**
+**Companion app (Windows):**
 - psutil (system stats & network)
 - pywin32/wmi (LibreHardwareMonitor integration)
-- tkinter (GUI - included with Python)
-- pystray/pillow (system tray - optional)
+- pywebview (native window hosting the local web UI)
+- pystray/pillow (system tray)
 
-**Python (Linux):**
+**Companion app (Linux):**
 - psutil (system stats, temps, fans, network)
-- tkinter (GUI)
+- pywebview (native window, falls back to the browser)
+- soundcard/numpy (audio visualizer - optional)
 
 ### File Structure
 ```
-pc_stats_monitor_v2.py          # Windows version with GUI
-pc_stats_monitor_v2_linux.py    # Linux version with GUI
-monitor_config.json              # Windows config (auto-generated)
-monitor_config_linux.json        # Linux config (auto-generated)
-pc_stats_monitor.py              # Legacy Windows script (v1.x)
-pc_stats_monitor_linux.py        # Legacy Linux script (v1.x)
+PC-Companion-App-v4/
+  companion-common/     # shared UI, server and protocol code
+  win-companion/        # Windows app, source of pc_stats_monitor_v4.exe
+  linux-companion/      # Linux app, run from source
+monitor_config.json     # per-user config (auto-generated, see path above)
 ```
 
 ## Advanced / Optional Features
