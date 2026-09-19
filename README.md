@@ -43,6 +43,17 @@ Some of those faulty boards have antenna too close to other components. Like in 
 
 A real-time PC monitoring system that displays CPU, RAM, GPU, and disk stats on a small OLED screen using ESP32 and a companion Python script.
 
+## Custom PCB, sponsored by PCBWay
+
+There is now a 27 x 27 mm carrier PCB that holds the ESP32-C3 SuperMini, the OLED header and the optional filament LED driver on one board, instead of wiring it by hand. **[PCBWay](https://www.pcbway.com/) sponsored this project and manufactured the boards**, SMT assembly included, shown below and in the assembly video.
+
+![Finished SmallOLED builds next to unpopulated carrier PCBs](img/pcbway-carrier-builds.jpg)
+
+- **[Board details and build notes](CARRIER-PCB.md)**
+- **[Order the board from PCBWay](https://www.pcbway.com/project/shareproject/SmallOLED_Carrier_27x27_mm_ESP32_C3_SuperMini_board_for_an_I2C_OLED_PC_stats_m_c42149ed.html)** (gerbers, BOM and pick and place files are attached to the shared project)
+- **[Full assembly video](https://youtu.be/5O7uISlaXd4)**: flashing from the browser, soldering, antenna mod and enclosure
+- **Cases for this board**: [0.96" (3MF)](case/SmallOLED-Case-0.96-PCB.3mf) and [1.3" retro (3MF)](case/SmallOLED-Case-1.3-Retro-PCB.3mf), two plates each. See [CARRIER-PCB.md](CARRIER-PCB.md#3d-printed-cases) before printing the 1.3" one, it needs a panel-mount USB-C on a lead
+
 ## Features
 
 - **Dual Display Modes:**
